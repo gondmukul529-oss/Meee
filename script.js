@@ -152,6 +152,26 @@ let unsubscribeMessages = null;
 let isLoginMode = false;
 let unsubscribeUsers = null;
 let allUsers = [];
+// Store online status for users
+const userStatuses = {};
+const statusListeners = {};
+
+function listenToUserStatus(user) {
+    if (statusListeners[user.uid]) return;
+
+    const statusRef = ref(rtdb, "status/" + user.uid);
+
+    statusListeners[user.uid] = onValue(
+        statusRef,
+        snapshot => {
+            userStatuses[user.uid] = snapshot.val();
+            renderUsers();
+        },
+        error => {
+            console.error("Status error:", error);
+        }
+    );
+}
 
 
 // 5. DISPLAY MESSAGE
@@ -326,6 +346,14 @@ function renderUsers() {
     nameElement.textContent = user.name || "Meee User";
 
     const emailElement = document.createElement("p");
+        const statusElement = document.createElement("p");
+const status = userStatuses[user.uid];
+
+if (status && status.state === "online") {
+    statusElement.textContent = "🟢 Online";
+} else {
+    statusElement.textContent = "⚫ Offline";
+}
     emailElement.textContent = user.email || "";
 
     const chatButton = document.createElement("button");
@@ -336,7 +364,7 @@ function renderUsers() {
         openChat(user);
     });
 
-    card.append(nameElement, emailElement, chatButton);
+    card.append(nameElement, emailElement, statusElement);
     usersList.appendChild(card);
 });
 }
@@ -363,7 +391,8 @@ function startUsersListener(currentUser) {
             allUsers = [];
 
             snapshot.forEach(documentSnapshot => {
-                const user = documentSnapshot.data();
+                const user = documentSnapshot.data()
+                listenToUserStatus(user);
 
                 // Hide the currently logged-in user.
                 if (documentSnapshot.id !== currentUser.uid) {
