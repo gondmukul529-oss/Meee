@@ -32,6 +32,15 @@ import {
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 
+// Realtime Database imports
+import {
+    getDatabase,
+    ref,
+    onValue,
+    onDisconnect,
+    set,
+    serverTimestamp as rtdbServerTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 // 1. FIREBASE CONFIG
 
 const firebaseConfig = {
@@ -47,6 +56,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const rtdb = getDatabase(app);
 
 
 // 2. HTML ELEMENTS
@@ -383,10 +393,42 @@ function stopUsersListener() {
 }
 
 
+// =====================================
+// MEEE MESSENGER - ONLINE / OFFLINE
+// =====================================
+
+function startPresence(user) {
+    const connectedRef = ref(rtdb, ".info/connected");
+    const statusRef = ref(rtdb, "status/" + user.uid);
+
+    onValue(connectedRef, async snapshot => {
+        if (snapshot.val() !== true) {
+            return;
+        }
+
+        try {
+            // Set offline when this connection disconnects.
+            await onDisconnect(statusRef).set({
+                state: "offline",
+                lastChanged: rtdbServerTimestamp()
+            });
+
+            // Set online now.
+            await set(statusRef, {
+                state: "online",
+                lastChanged: rtdbServerTimestamp()
+            });
+        } catch (error) {
+            console.error("Presence error:", error);
+        }
+    });
+}
 // 11. AUTHENTICATION STATE
 
 onAuthStateChanged(auth, async user => {
     if (user) {
+        startPresence(user);
+        
         authScreen.hidden = true;
         appScreen.hidden = false;
 
