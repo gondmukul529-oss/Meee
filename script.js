@@ -1,9 +1,10 @@
-// ==========================================
-// 1. FIREBASE IMPORTS
-// ==========================================
+// =====================================
+// MEEE MESSENGER - PHASE 1
+// Authentication + User Profiles + Search
+// =====================================
 
 import { initializeApp } from
-    "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
 import {
     getAuth,
@@ -11,19 +12,25 @@ import {
     signInWithEmailAndPassword,
     onAuthStateChanged,
     signOut
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+} from
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 import {
     getFirestore,
     doc,
     setDoc,
+    getDoc,
+    collection,
+    query,
+    orderBy,
+    limit,
+    onSnapshot,
     serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+} from
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 
-// ==========================================
-// 2. FIREBASE CONFIGURATION
-// ==========================================
+// 1. FIREBASE CONFIG
 
 const firebaseConfig = {
     apiKey: "AIzaSyCQW_iwuC_ZKGgux1gN45WAgLMMgcYy05g",
@@ -35,84 +42,85 @@ const firebaseConfig = {
     measurementId: "G-XVZ5CJT3FC"
 };
 
-
-// ==========================================
-// 3. INITIALIZE FIREBASE
-// ==========================================
-
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
 
-// ==========================================
-// 4. GET HTML ELEMENTS
-// ==========================================
+// 2. HTML ELEMENTS
 
 const authScreen = document.getElementById("authScreen");
 const appScreen = document.getElementById("appScreen");
-
 const authForm = document.getElementById("authForm");
 const signupName = document.getElementById("signupName");
 const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
-
 const submitBtn = document.getElementById("submitBtn");
 const formTitle = document.getElementById("formTitle");
-
 const switchBtn = document.getElementById("switchBtn");
 const switchText = document.getElementById("switchText");
-
 const authMessage = document.getElementById("authMessage");
 const userInfo = document.getElementById("userInfo");
 const logoutBtn = document.getElementById("logoutBtn");
 
 
-// ==========================================
-// 5. CHECK HTML ELEMENTS
-// ==========================================
+// 3. CREATE USER LIST ELEMENTS
 
-if (
-    !authScreen ||
-    !appScreen ||
-    !authForm ||
-    !signupName ||
-    !emailInput ||
-    !passwordInput ||
-    !submitBtn ||
-    !formTitle ||
-    !switchBtn ||
-    !switchText ||
-    !authMessage ||
-    !userInfo ||
-    !logoutBtn
-) {
-    console.error(
-        "HTML element missing. Check the IDs in index.html."
-    );
-}
+// These elements are created dynamically.
+// Existing style.css does not need to be replaced.
+
+const usersSection = document.createElement("section");
+usersSection.id = "usersSection";
+
+const usersHeading = document.createElement("h2");
+usersHeading.textContent = "Meee Users";
+
+const searchInput = document.createElement("input");
+searchInput.id = "searchUsers";
+searchInput.type = "search";
+searchInput.placeholder = "Search users by name or email...";
+
+searchInput.setAttribute(
+    "aria-label",
+    "Search registered users"
+);
+
+const usersMessage = document.createElement("p");
+usersMessage.id = "usersMessage";
+usersMessage.textContent = "Loading users...";
+
+const usersList = document.createElement("div");
+usersList.id = "usersList";
+
+usersSection.append(
+    usersHeading,
+    searchInput,
+    usersMessage,
+    usersList
+);
+
+appScreen.appendChild(usersSection);
 
 
-// ==========================================
-// 6. LOGIN / SIGNUP MODE
-// ==========================================
+// 4. STATE
 
 let isLoginMode = false;
+let unsubscribeUsers = null;
+let allUsers = [];
 
 
-// Show message safely
+// 5. DISPLAY MESSAGE
+
 function showMessage(message, isError = false) {
-    if (!authMessage) return;
-
     authMessage.textContent = message;
-
     authMessage.style.color = isError
         ? "#dc2626"
         : "#15803d";
 }
 
 
-// Change form mode
+// 6. LOGIN / SIGNUP SWITCH
+
 function setAuthMode(loginMode) {
     isLoginMode = loginMode;
 
@@ -130,7 +138,6 @@ function setAuthMode(loginMode) {
 
         switchText.textContent = "Don't have an account? ";
         switchText.appendChild(switchBtn);
-
         switchBtn.textContent = "Sign Up";
     } else {
         formTitle.textContent = "Create Account";
@@ -143,25 +150,36 @@ function setAuthMode(loginMode) {
 
         switchText.textContent = "Already have an account? ";
         switchText.appendChild(switchBtn);
-
         switchBtn.textContent = "Login";
     }
 }
 
-
-// Switch between Login and Sign Up
-switchBtn.addEventListener("click", (event) => {
+switchBtn.addEventListener("click", event => {
     event.preventDefault();
-
     setAuthMode(!isLoginMode);
 });
 
 
-// ==========================================
-// 7. LOGIN AND SIGNUP
-// ==========================================
+// 7. CREATE PROFILE
 
-authForm.addEventListener("submit", async (event) => {
+async function saveUserProfile(user, name) {
+    const profileRef = doc(db, "users", user.uid);
+    const profileSnapshot = await getDoc(profileRef);
+
+    if (!profileSnapshot.exists()) {
+        await setDoc(profileRef, {
+            uid: user.uid,
+            name: name,
+            email: user.email,
+            createdAt: serverTimestamp()
+        });
+    }
+}
+
+
+// 8. LOGIN / SIGNUP
+
+authForm.addEventListener("submit", async event => {
     event.preventDefault();
 
     const userEmail = emailInput.value.trim();
@@ -169,26 +187,12 @@ authForm.addEventListener("submit", async (event) => {
     const name = signupName.value.trim();
 
     if (!userEmail || !userPassword) {
-        showMessage(
-            "Email aur password enter karo.",
-            true
-        );
+        showMessage("Email aur password enter karo.", true);
         return;
     }
 
     if (!isLoginMode && !name) {
-        showMessage(
-            "Apna naam enter karo.",
-            true
-        );
-        return;
-    }
-
-    if (userPassword.length < 6) {
-        showMessage(
-            "Password kam se kam 6 characters ka hona chahiye.",
-            true
-        );
+        showMessage("Apna naam enter karo.", true);
         return;
     }
 
@@ -196,13 +200,7 @@ authForm.addEventListener("submit", async (event) => {
     submitBtn.textContent = "Please wait...";
 
     try {
-
-        // --------------------------
-        // LOGIN
-        // --------------------------
-
         if (isLoginMode) {
-
             await signInWithEmailAndPassword(
                 auth,
                 userEmail,
@@ -210,166 +208,200 @@ authForm.addEventListener("submit", async (event) => {
             );
 
             showMessage("Login successful!");
-
-        }
-
-        // --------------------------
-        // SIGN UP
-        // --------------------------
-
-        else {
-
-            const result =
-                await createUserWithEmailAndPassword(
-                    auth,
-                    userEmail,
-                    userPassword
-                );
-
-            // Save user profile in Firestore
-            await setDoc(
-                doc(db, "users", result.user.uid),
-                {
-                    uid: result.user.uid,
-                    name: name,
-                    email: userEmail,
-                    createdAt: serverTimestamp()
-                }
+        } else {
+            const result = await createUserWithEmailAndPassword(
+                auth,
+                userEmail,
+                userPassword
             );
 
-            showMessage(
-                "Account successfully created!"
-            );
-        }
+            await saveUserProfile(result.user, name);
 
+            showMessage("Account successfully created!");
+        }
     } catch (error) {
+        console.error("Authentication error:", error);
 
-        console.error(
-            "Firebase error:",
-            error.code,
-            error.message
-        );
-
-        const errors = {
-            "auth/invalid-email":
-                "Email address sahi nahi hai.",
-
-            "auth/invalid-credential":
-                "Email ya password galat hai. Dobara check karo.",
-
-            "auth/user-not-found":
-                "Account nahi mila. Pehle Sign Up karo.",
-
-            "auth/wrong-password":
-                "Password galat hai.",
-
-            "auth/email-already-in-use":
-                "Ye email pehle se registered hai. Login karo.",
-
-            "auth/weak-password":
-                "Password kam se kam 6 characters ka rakho.",
-
-            "auth/operation-not-allowed":
-                "Firebase Console mein Email/Password sign-in enable karo.",
-
-            "auth/network-request-failed":
-                "Internet connection check karo.",
-
-            "auth/too-many-requests":
-                "Bahut baar try kiya hai. Thodi der baad try karo.",
-
-            "permission-denied":
-                "Firestore permission error. Security Rules check karo.",
-
-            "unavailable":
-                "Firebase service abhi available nahi hai. Dobara try karo."
+        const messages = {
+            "auth/invalid-email": "Email address sahi nahi hai.",
+            "auth/invalid-credential": "Email ya password galat hai.",
+            "auth/email-already-in-use": "Email pehle se registered hai.",
+            "auth/weak-password": "Password kam se kam 6 characters ka rakho.",
+            "auth/operation-not-allowed": "Firebase Email/Password sign-in enable karo.",
+            "auth/network-request-failed": "Internet connection check karo.",
+            "permission-denied": "Firestore permission error. Rules check karo."
         };
 
         showMessage(
-            errors[error.code] ||
-            `Error: ${error.code || error.message}`,
+            messages[error.code] || "Error: " + error.message,
             true
         );
-
     } finally {
-
         submitBtn.disabled = false;
-
-        submitBtn.textContent = isLoginMode
-            ? "Login"
-            : "Sign Up";
+        submitBtn.textContent = isLoginMode ? "Login" : "Sign Up";
     }
 });
 
 
-// ==========================================
-// 8. CHECK LOGIN STATUS
-// ==========================================
+// 9. DISPLAY REGISTERED USERS
 
-onAuthStateChanged(auth, (user) => {
+function renderUsers() {
+    const searchTerm = searchInput.value
+        .trim()
+        .toLowerCase();
 
+    const filteredUsers = allUsers.filter(user => {
+        const name = (user.name || "").toLowerCase();
+        const email = (user.email || "").toLowerCase();
+
+        return (
+            name.includes(searchTerm) ||
+            email.includes(searchTerm)
+        );
+    });
+
+    usersList.replaceChildren();
+
+    if (filteredUsers.length === 0) {
+        usersMessage.textContent = searchTerm
+            ? "No matching users found."
+            : "No other registered users found.";
+
+        return;
+    }
+
+    usersMessage.textContent =
+        `${filteredUsers.length} user(s) found`;
+
+    filteredUsers.forEach(user => {
+        const card = document.createElement("div");
+        card.className = "user-card";
+
+        const nameElement = document.createElement("h3");
+        nameElement.textContent = user.name || "Meee User";
+
+        const emailElement = document.createElement("p");
+        emailElement.textContent = user.email || "";
+
+        card.append(nameElement, emailElement);
+        usersList.appendChild(card);
+    });
+}
+
+searchInput.addEventListener("input", renderUsers);
+
+
+// 10. LISTEN FOR USER PROFILES
+
+function startUsersListener(currentUser) {
+    stopUsersListener();
+
+    usersMessage.textContent = "Loading users...";
+
+    const usersQuery = query(
+        collection(db, "users"),
+        orderBy("name"),
+        limit(100)
+    );
+
+    unsubscribeUsers = onSnapshot(
+        usersQuery,
+        snapshot => {
+            allUsers = [];
+
+            snapshot.forEach(documentSnapshot => {
+                const user = documentSnapshot.data();
+
+                // Hide the currently logged-in user.
+                if (documentSnapshot.id !== currentUser.uid) {
+                    allUsers.push(user);
+                }
+            });
+
+            renderUsers();
+        },
+        error => {
+            console.error("Users list error:", error);
+
+            usersMessage.textContent =
+                "Users load nahi hue. Firestore Rules check karo.";
+        }
+    );
+}
+
+function stopUsersListener() {
+    if (unsubscribeUsers) {
+        unsubscribeUsers();
+        unsubscribeUsers = null;
+    }
+
+    allUsers = [];
+    usersList.replaceChildren();
+}
+
+
+// 11. AUTHENTICATION STATE
+
+onAuthStateChanged(auth, async user => {
     if (user) {
-
-        // User is logged in
         authScreen.hidden = true;
         appScreen.hidden = false;
 
-        userInfo.textContent =
-            `Logged in as: ${user.email}`;
+        userInfo.textContent = "Logged in as: " + user.email;
 
+        try {
+            // Create a fallback profile if a previous signup
+            // created the Auth account but failed to save its profile.
+            const profileRef = doc(db, "users", user.uid);
+            const profileSnapshot = await getDoc(profileRef);
+
+            if (!profileSnapshot.exists()) {
+                await setDoc(profileRef, {
+                    uid: user.uid,
+                    name: user.displayName || user.email.split("@")[0],
+                    email: user.email,
+                    createdAt: serverTimestamp()
+                });
+            }
+
+            startUsersListener(user);
+        } catch (error) {
+            console.error("Profile/list error:", error);
+
+            usersMessage.textContent =
+                "User profile access nahi ho raha. Firestore Rules check karo.";
+        }
     } else {
-
-        // User is logged out
         authScreen.hidden = false;
         appScreen.hidden = true;
 
+        stopUsersListener();
     }
 });
 
 
-// ==========================================
-// 9. LOGOUT
-// ==========================================
+// 12. LOGOUT
 
-logoutBtn.addEventListener("click", async (event) => {
-
+logoutBtn.addEventListener("click", async event => {
     event.preventDefault();
 
     logoutBtn.disabled = true;
 
     try {
-
         await signOut(auth);
-
         setAuthMode(true);
-
-        showMessage("Logged out successfully.");
-
+        showMessage("Logged out successfully!");
     } catch (error) {
-
-        console.error(
-            "Logout error:",
-            error.code,
-            error.message
-        );
-
-        showMessage(
-            "Logout nahi hua. Dobara try karo.",
-            true
-        );
-
+        console.error("Logout error:", error);
+        showMessage("Logout nahi hua. Dobara try karo.", true);
     } finally {
-
         logoutBtn.disabled = false;
-
     }
 });
 
 
-// ==========================================
-// 10. INITIAL FORM SETUP
-// ==========================================
+// 13. INITIAL SETUP
 
 setAuthMode(false);
 
-console.log("Meee Messenger Firebase initialized.");
+console.log("Meee Messenger Phase 1 initialized.");
