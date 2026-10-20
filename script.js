@@ -641,7 +641,9 @@ chatForm.addEventListener("submit", async event => {
                 text: text,
                 senderId: currentUser.uid,
                 receiverId: otherUser.uid,
-                createdAt: serverTimestamp()
+                createdAt: serverTimestamp(),
+                seen: false,
+                seenAt: null
             }
         );
 
