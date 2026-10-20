@@ -364,8 +364,14 @@ if (status && status.state === "online") {
         openChat(user);
     });
 
-    card.append(nameElement, emailElement, statusElement);
-    usersList.appendChild(card);
+    card.append(
+    nameElement,
+    emailElement,
+    statusElement,
+    chatButton
+);
+
+usersList.appendChild(card);
 });
 }
 
