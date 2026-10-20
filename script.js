@@ -1,3 +1,7 @@
+// ==========================================
+// 1. FIREBASE IMPORTS
+// ==========================================
+
 import { initializeApp } from
     "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
@@ -17,7 +21,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 
-// YOUR FIREBASE CONFIG
+// ==========================================
+// 2. FIREBASE CONFIGURATION
+// ==========================================
+
 const firebaseConfig = {
     apiKey: "AIzaSyCQW_iwuC_ZKGgux1gN45WAgLMMgcYy05g",
     authDomain: "meee-fb140.firebaseapp.com",
@@ -29,40 +36,85 @@ const firebaseConfig = {
 };
 
 
-// INITIALIZE FIREBASE
+// ==========================================
+// 3. INITIALIZE FIREBASE
+// ==========================================
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
 
-// HTML ELEMENTS
+// ==========================================
+// 4. GET HTML ELEMENTS
+// ==========================================
+
 const authScreen = document.getElementById("authScreen");
 const appScreen = document.getElementById("appScreen");
+
 const authForm = document.getElementById("authForm");
 const signupName = document.getElementById("signupName");
-const email = document.getElementById("email");
-const password = document.getElementById("password");
+const emailInput = document.getElementById("email");
+const passwordInput = document.getElementById("password");
+
 const submitBtn = document.getElementById("submitBtn");
 const formTitle = document.getElementById("formTitle");
+
 const switchBtn = document.getElementById("switchBtn");
 const switchText = document.getElementById("switchText");
+
 const authMessage = document.getElementById("authMessage");
 const userInfo = document.getElementById("userInfo");
 const logoutBtn = document.getElementById("logoutBtn");
 
-let isLoginMode = false;
 
+// ==========================================
+// 5. CHECK HTML ELEMENTS
+// ==========================================
 
-// SHOW MESSAGE
-function showMessage(message, isError = false) {
-    authMessage.textContent = message;
-    authMessage.style.color = isError ? "#dc2626" : "#15803d";
+if (
+    !authScreen ||
+    !appScreen ||
+    !authForm ||
+    !signupName ||
+    !emailInput ||
+    !passwordInput ||
+    !submitBtn ||
+    !formTitle ||
+    !switchBtn ||
+    !switchText ||
+    !authMessage ||
+    !userInfo ||
+    !logoutBtn
+) {
+    console.error(
+        "HTML element missing. Check the IDs in index.html."
+    );
 }
 
 
-// SWITCH LOGIN / SIGNUP
-switchBtn.addEventListener("click", () => {
-    isLoginMode = !isLoginMode;
+// ==========================================
+// 6. LOGIN / SIGNUP MODE
+// ==========================================
+
+let isLoginMode = false;
+
+
+// Show message safely
+function showMessage(message, isError = false) {
+    if (!authMessage) return;
+
+    authMessage.textContent = message;
+
+    authMessage.style.color = isError
+        ? "#dc2626"
+        : "#15803d";
+}
+
+
+// Change form mode
+function setAuthMode(loginMode) {
+    isLoginMode = loginMode;
 
     authForm.reset();
     showMessage("");
@@ -70,44 +122,73 @@ switchBtn.addEventListener("click", () => {
     if (isLoginMode) {
         formTitle.textContent = "Login";
         submitBtn.textContent = "Login";
+
         signupName.hidden = true;
         signupName.required = false;
-        password.autocomplete = "current-password";
 
-        switchText.firstChild.textContent =
-            "Don't have an account? ";
+        passwordInput.autocomplete = "current-password";
+
+        switchText.textContent = "Don't have an account? ";
+        switchText.appendChild(switchBtn);
 
         switchBtn.textContent = "Sign Up";
     } else {
         formTitle.textContent = "Create Account";
         submitBtn.textContent = "Sign Up";
+
         signupName.hidden = false;
         signupName.required = true;
-        password.autocomplete = "new-password";
 
-        switchText.firstChild.textContent =
-            "Already have an account? ";
+        passwordInput.autocomplete = "new-password";
+
+        switchText.textContent = "Already have an account? ";
+        switchText.appendChild(switchBtn);
 
         switchBtn.textContent = "Login";
     }
+}
+
+
+// Switch between Login and Sign Up
+switchBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+
+    setAuthMode(!isLoginMode);
 });
 
 
-// SIGNUP AND LOGIN
+// ==========================================
+// 7. LOGIN AND SIGNUP
+// ==========================================
+
 authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const userEmail = email.value.trim();
-    const userPassword = password.value;
+    const userEmail = emailInput.value.trim();
+    const userPassword = passwordInput.value;
     const name = signupName.value.trim();
 
     if (!userEmail || !userPassword) {
-        showMessage("Email aur password enter karo.", true);
+        showMessage(
+            "Email aur password enter karo.",
+            true
+        );
         return;
     }
 
     if (!isLoginMode && !name) {
-        showMessage("Apna naam enter karo.", true);
+        showMessage(
+            "Apna naam enter karo.",
+            true
+        );
+        return;
+    }
+
+    if (userPassword.length < 6) {
+        showMessage(
+            "Password kam se kam 6 characters ka hona chahiye.",
+            true
+        );
         return;
     }
 
@@ -115,9 +196,13 @@ authForm.addEventListener("submit", async (event) => {
     submitBtn.textContent = "Please wait...";
 
     try {
+
+        // --------------------------
+        // LOGIN
+        // --------------------------
+
         if (isLoginMode) {
 
-            // LOGIN
             await signInWithEmailAndPassword(
                 auth,
                 userEmail,
@@ -126,58 +211,51 @@ authForm.addEventListener("submit", async (event) => {
 
             showMessage("Login successful!");
 
-        } else {
+        }
 
-            // SIGNUP
-            const result = await createUserWithEmailAndPassword(
-                auth,
-                userEmail,
-                userPassword
+        // --------------------------
+        // SIGN UP
+        // --------------------------
+
+        else {
+
+            const result =
+                await createUserWithEmailAndPassword(
+                    auth,
+                    userEmail,
+                    userPassword
+                );
+
+            // Save user profile in Firestore
+            await setDoc(
+                doc(db, "users", result.user.uid),
+                {
+                    uid: result.user.uid,
+                    name: name,
+                    email: userEmail,
+                    createdAt: serverTimestamp()
+                }
             );
 
-            // SAVE USER PROFILE
-            try {
-                await setDoc(
-                    doc(db, "users", result.user.uid),
-                    {
-                        uid: result.user.uid,
-                        name: name,
-                        email: userEmail,
-                        createdAt: serverTimestamp()
-                    }
-                );
-            } catch (profileError) {
-                console.error(
-                    "Profile save error:",
-                    profileError.code,
-                    profileError.message
-                );
-
-                showMessage(
-                    "Account ban gaya, lekin profile save nahi hui. Firestore Rules check karo.",
-                    true
-                );
-                return;
-            }
-
-            showMessage("Account successfully created!");
+            showMessage(
+                "Account successfully created!"
+            );
         }
 
     } catch (error) {
-        console.error("Firebase error:", error.code, error.message);
+
+        console.error(
+            "Firebase error:",
+            error.code,
+            error.message
+        );
 
         const errors = {
-            "auth/email-already-in-use":
-                "Ye email pehle se registered hai. Login karo.",
-
             "auth/invalid-email":
                 "Email address sahi nahi hai.",
 
-            "auth/weak-password":
-                "Password kam se kam 6 characters ka rakho.",
-
             "auth/invalid-credential":
-                "Email ya password galat hai.",
+                "Email ya password galat hai. Dobara check karo.",
 
             "auth/user-not-found":
                 "Account nahi mila. Pehle Sign Up karo.",
@@ -185,14 +263,26 @@ authForm.addEventListener("submit", async (event) => {
             "auth/wrong-password":
                 "Password galat hai.",
 
+            "auth/email-already-in-use":
+                "Ye email pehle se registered hai. Login karo.",
+
+            "auth/weak-password":
+                "Password kam se kam 6 characters ka rakho.",
+
             "auth/operation-not-allowed":
-                "Firebase mein Email/Password sign-in enable karo.",
+                "Firebase Console mein Email/Password sign-in enable karo.",
+
+            "auth/network-request-failed":
+                "Internet connection check karo.",
 
             "auth/too-many-requests":
                 "Bahut baar try kiya hai. Thodi der baad try karo.",
 
-            "auth/network-request-failed":
-                "Internet connection check karo."
+            "permission-denied":
+                "Firestore permission error. Security Rules check karo.",
+
+            "unavailable":
+                "Firebase service abhi available nahi hai. Dobara try karo."
         };
 
         showMessage(
@@ -202,46 +292,84 @@ authForm.addEventListener("submit", async (event) => {
         );
 
     } finally {
+
         submitBtn.disabled = false;
-        submitBtn.textContent = isLoginMode ? "Login" : "Sign Up";
+
+        submitBtn.textContent = isLoginMode
+            ? "Login"
+            : "Sign Up";
     }
 });
 
 
-// CHECK LOGIN STATUS
+// ==========================================
+// 8. CHECK LOGIN STATUS
+// ==========================================
+
 onAuthStateChanged(auth, (user) => {
+
     if (user) {
+
+        // User is logged in
         authScreen.hidden = true;
         appScreen.hidden = false;
 
         userInfo.textContent =
             `Logged in as: ${user.email}`;
+
     } else {
+
+        // User is logged out
         authScreen.hidden = false;
         appScreen.hidden = true;
+
     }
 });
 
 
-// LOGOUT
-logoutBtn.addEventListener("click", async () => {
+// ==========================================
+// 9. LOGOUT
+// ==========================================
+
+logoutBtn.addEventListener("click", async (event) => {
+
+    event.preventDefault();
+
+    logoutBtn.disabled = true;
+
     try {
+
         await signOut(auth);
-        isLoginMode = true;
 
-        formTitle.textContent = "Login";
-        submitBtn.textContent = "Login";
-        signupName.hidden = true;
-        signupName.required = false;
-        switchText.firstChild.textContent =
-            "Don't have an account? ";
-        switchBtn.textContent = "Sign Up";
+        setAuthMode(true);
 
-        authForm.reset();
         showMessage("Logged out successfully.");
 
     } catch (error) {
-        console.error("Logout error:", error);
-        showMessage("Logout nahi hua. Dobara try karo.", true);
+
+        console.error(
+            "Logout error:",
+            error.code,
+            error.message
+        );
+
+        showMessage(
+            "Logout nahi hua. Dobara try karo.",
+            true
+        );
+
+    } finally {
+
+        logoutBtn.disabled = false;
+
     }
 });
+
+
+// ==========================================
+// 10. INITIAL FORM SETUP
+// ==========================================
+
+setAuthMode(false);
+
+console.log("Meee Messenger Firebase initialized.");
