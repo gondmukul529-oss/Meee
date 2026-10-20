@@ -21,6 +21,8 @@ import {
     setDoc,
     getDoc,
     collection,
+    addDoc,
+    where,
     query,
     orderBy,
     limit,
@@ -100,6 +102,39 @@ usersSection.append(
 );
 
 appScreen.appendChild(usersSection);
+// CHAT WINDOW
+const chatSection = document.createElement("section");
+chatSection.id = "chatSection";
+
+chatSection.innerHTML = `
+    <h2 id="chatTitle">💬 Meee Chat</h2>
+    <div id="chatMessages"></div>
+
+    <form id="chatForm">
+        <input
+            id="chatInput"
+            type="text"
+            placeholder="Type your message..."
+            maxlength="2000"
+            required
+        >
+        <button id="chatSend" type="submit">Send</button>
+    </form>
+
+    <p id="chatStatus"></p>
+`;
+
+chatSection.hidden = true;
+appScreen.appendChild(chatSection);
+
+const chatTitle = document.getElementById("chatTitle");
+const chatMessages = document.getElementById("chatMessages");
+const chatForm = document.getElementById("chatForm");
+const chatInput = document.getElementById("chatInput");
+const chatStatus = document.getElementById("chatStatus");
+
+let selectedChatUser = null;
+let unsubscribeMessages = null;
 
 
 // 4. STATE
@@ -274,18 +309,26 @@ function renderUsers() {
         `${filteredUsers.length} user(s) found`;
 
     filteredUsers.forEach(user => {
-        const card = document.createElement("div");
-        card.className = "user-card";
+    const card = document.createElement("div");
+    card.className = "user-card";
 
-        const nameElement = document.createElement("h3");
-        nameElement.textContent = user.name || "Meee User";
+    const nameElement = document.createElement("h3");
+    nameElement.textContent = user.name || "Meee User";
 
-        const emailElement = document.createElement("p");
-        emailElement.textContent = user.email || "";
+    const emailElement = document.createElement("p");
+    emailElement.textContent = user.email || "";
 
-        card.append(nameElement, emailElement);
-        usersList.appendChild(card);
+    const chatButton = document.createElement("button");
+    chatButton.textContent = "💬 Chat";
+    chatButton.type = "button";
+
+    chatButton.addEventListener("click", () => {
+        openChat(user);
     });
+
+    card.append(nameElement, emailElement, chatButton);
+    usersList.appendChild(card);
+});
 }
 
 searchInput.addEventListener("input", renderUsers);
@@ -405,3 +448,139 @@ logoutBtn.addEventListener("click", async event => {
 setAuthMode(false);
 
 console.log("Meee Messenger Phase 1 initialized.");
+// OPEN A CHAT
+async function openChat(otherUser) {
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) {
+        return;
+    }
+
+    if (otherUser.uid === currentUser.uid) {
+        return;
+    }
+
+    if (!otherUser.uid) {
+        chatStatus.textContent = "User ID nahi mila.";
+        return;
+    }
+
+    selectedChatUser = otherUser;
+
+    chatSection.hidden = false;
+    chatTitle.textContent =
+        "💬 Chat with " + (otherUser.name || "User");
+
+    chatMessages.replaceChildren();
+    chatStatus.textContent = "Loading messages...";
+
+    if (unsubscribeMessages) {
+        unsubscribeMessages();
+        unsubscribeMessages = null;
+    }
+
+    // Same conversation ID for both users.
+    const conversationId = [
+        currentUser.uid,
+        otherUser.uid
+    ].sort().join("_");
+
+    const messagesRef = collection(
+        db,
+        "conversations",
+        conversationId,
+        "messages"
+    );
+
+    const messagesQuery = query(
+        messagesRef,
+        orderBy("createdAt", "asc"),
+        limit(100)
+    );
+
+    unsubscribeMessages = onSnapshot(
+        messagesQuery,
+        snapshot => {
+            chatMessages.replaceChildren();
+
+            snapshot.forEach(messageDoc => {
+                const message = messageDoc.data();
+
+                const bubble = document.createElement("div");
+                bubble.className =
+                    "chat-message " +
+                    (message.senderId === currentUser.uid
+                        ? "my-message"
+                        : "other-message");
+
+                const text = document.createElement("p");
+                text.textContent = message.text || "";
+
+                const sender = document.createElement("small");
+                sender.textContent =
+                    message.senderId === currentUser.uid
+                        ? "You"
+                        : (otherUser.name || "User");
+
+                bubble.append(sender, text);
+                chatMessages.appendChild(bubble);
+            });
+
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            chatStatus.textContent = "Connected";
+        },
+        error => {
+            console.error("Message listener error:", error);
+            chatStatus.textContent =
+                "Messages load nahi hue: " + error.message;
+        }
+    );
+}
+
+
+// SEND A MESSAGE
+chatForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const currentUser = auth.currentUser;
+    const otherUser = selectedChatUser;
+    const text = chatInput.value.trim();
+
+    if (!currentUser || !otherUser || !text) {
+        return;
+    }
+
+    const sendButton = document.getElementById("chatSend");
+    sendButton.disabled = true;
+
+    const conversationId = [
+        currentUser.uid,
+        otherUser.uid
+    ].sort().join("_");
+
+    try {
+        await addDoc(
+            collection(
+                db,
+                "conversations",
+                conversationId,
+                "messages"
+            ),
+            {
+                text: text,
+                senderId: currentUser.uid,
+                receiverId: otherUser.uid,
+                createdAt: serverTimestamp()
+            }
+        );
+
+        chatInput.value = "";
+        chatStatus.textContent = "Message sent!";
+    } catch (error) {
+        console.error("Send message error:", error);
+        chatStatus.textContent =
+            "Message send nahi hua: " + error.message;
+    } finally {
+        sendButton.disabled = false;
+    }
+});
