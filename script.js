@@ -593,7 +593,15 @@ async function openChat(otherUser) {
                         ? "You"
                         : (otherUser.name || "User");
 
-                bubble.append(sender, text);
+                const receipt = document.createElement("small");
+
+if (message.senderId === currentUser.uid) {
+    receipt.textContent = message.seen ? "✓✓ Seen" : "✓ Sent";
+} else {
+    receipt.textContent = message.seen ? "✓✓ Seen" : "";
+}
+
+bubble.append(sender, text, receipt);
                 chatMessages.appendChild(bubble);
             });
 
