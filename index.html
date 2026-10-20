@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meee Messenger</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <!-- Login / Signup Screen -->
+<div id="authScreen" class="auth-screen">
+    <div class="auth-card">
+        <div class="logo-icon">M</div>
+
+        <h1>Meee</h1>
+        <p>Connect with your people 💜</p>
+
+        <input
+            type="text"
+            id="signupName"
+            placeholder="Your name (signup only)"
+        >
+
+        <input
+            type="email"
+            id="email"
+            placeholder="Email address"
+            required
+        >
+
+        <input
+            type="password"
+            id="password"
+            placeholder="Password (minimum 6 characters)"
+            required
+        >
+
+        <button id="signupBtn">Create Account</button>
+        <button id="loginBtn" class="secondary-btn">Login</button>
+
+        <p id="authMessage"></p>
+    </div>
+</div>
+    <div class="app">
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">M</div>
+                <h1>Meee</h1>
+            </div>
+
+            <input
+                type="text"
+                id="search"
+                placeholder="Search people..."
+            >
+
+            <h3>Messages</h3>
+
+            <div id="contacts">
+                <button class="contact active" data-name="Aarav">
+                    <span class="avatar">A</span>
+                    <span>
+                        <b>Aarav</b>
+                        <small>Hey! How are you?</small>
+                    </span>
+                </button>
+
+                <button class="contact" data-name="Priya">
+                    <span class="avatar pink">P</span>
+                    <span>
+                        <b>Priya</b>
+                        <small>See you soon!</small>
+                    </span>
+                </button>
+
+                <button class="contact" data-name="Rahul">
+                    <span class="avatar orange">R</span>
+                    <span>
+                        <b>Rahul</b>
+                        <small>Okay bro 👍</small>
+                    </span>
+                </button>
+            </div>
+
+            <div class="profile">
+                <div class="avatar">Y</div>
+                <div>
+                    <b>Your Profile</b>
+                    <small>Welcome to Meee</small>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Chat Area -->
+        <main class="chat">
+            <header class="chat-header">
+                <div class="avatar" id="chatAvatar">A</div>
+
+                <div>
+                    <h2 id="chatName">Aarav</h2>
+                    <small class="status">Meee Messenger</small>
+                </div>
+
+                <button id="clearChat" class="clear-button">
+                    Clear
+                </button>
+            </header>
+
+            <section id="messages" class="messages">
+                <div class="date-label">Today</div>
+
+                <div class="message received">
+                    Hey! Welcome to Meee 👋
+                </div>
+
+                <div class="message sent">
+                    Hello! How are you?
+                </div>
+            </section>
+
+            <form id="messageForm" class="message-form">
+                <input
+                    type="text"
+                    id="messageInput"
+                    placeholder="Type a message..."
+                    autocomplete="off"
+                    required
+                >
+
+                <button type="submit" class="send-button">
+                    ➤
+                </button>
+            </form>
+
+            <p class="notice">
+                Demo version — messages are saved only in this browser.
+            </p>
+        </main>
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
