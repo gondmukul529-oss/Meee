@@ -363,13 +363,14 @@ if (status && status.state === "online") {
     chatButton.addEventListener("click", () => {
         openChat(user);
     });
-
-    card.append(
+        card.append(
     nameElement,
     emailElement,
     statusElement,
     chatButton
 );
+
+usersList.appendChild(card);
 
 usersList.appendChild(card);
 });
