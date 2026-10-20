@@ -562,6 +562,36 @@ async function openChat(otherUser) {
         conversationId,
         "messages"
     );
+    // Mark received messages as seen
+async function markMessagesAsSeen(snapshot) {
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) return;
+
+    const updates = [];
+
+    snapshot.forEach(messageDoc => {
+        const message = messageDoc.data();
+
+        if (
+            message.receiverId === currentUser.uid &&
+            message.seen !== true
+        ) {
+            updates.push(
+                setDoc(
+                    messageDoc.ref,
+                    {
+                        seen: true,
+                        seenAt: serverTimestamp()
+                    },
+                    { merge: true }
+                )
+            );
+        }
+    });
+
+    await Promise.all(updates);
+}
 
     const messagesQuery = query(
         messagesRef,
@@ -572,7 +602,11 @@ async function openChat(otherUser) {
     unsubscribeMessages = onSnapshot(
         messagesQuery,
         snapshot => {
-            chatMessages.replaceChildren();
+    markMessagesAsSeen(snapshot).catch(error => {
+        console.error("Seen update error:", error);
+    });
+
+    chatMessages.replaceChildren();
 
             snapshot.forEach(messageDoc => {
                 const message = messageDoc.data();
