@@ -360,9 +360,17 @@ if (status && status.state === "online") {
     chatButton.textContent = "💬 Chat";
     chatButton.type = "button";
 
-    chatButton.addEventListener("click", () => {
-        openChat(user);
-    });
+    chatButton.addEventListener("click", async () => {
+    console.log("Chat button clicked:", user);
+
+    try {
+        await openChat(user);
+    } catch (error) {
+        console.error("Open chat error:", error);
+        chatStatus.textContent = "Chat error: " + error.message;
+        chatSection.hidden = false;
+    }
+});
         card.append(
     nameElement,
     emailElement,
